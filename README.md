@@ -11,6 +11,29 @@ Open:
 - Backend docs: http://localhost:8000/docs
 - Frontend: http://localhost:5173
 
+## Board Game Catalog Seeding
+
+Seed the global board game catalog manually (recommended):
+
+```bash
+docker compose exec backend python -m app.scripts.seed_board_games
+```
+
+Optional startup seeding:
+
+```bash
+# enables seed on API startup
+SEED_ON_STARTUP=true
+```
+
+BGG CSV import skeleton (manual only):
+
+```bash
+docker compose exec backend python -m app.scripts.import_bgg_rank_csv
+```
+
+Set `BGG_RANKS_CSV_URL` before running the import script.
+
 ## Local Development Setup
 
 ### 1. Start PostgreSQL

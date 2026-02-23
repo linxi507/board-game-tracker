@@ -33,7 +33,8 @@ app.include_router(stats_router)
 def validate_security_config() -> None:
     """Validate required security configuration at startup."""
     get_jwt_settings()
-    seed_board_games_if_empty()
+    if settings.seed_on_startup:
+        seed_board_games_if_empty()
 
 
 @app.get("/health")

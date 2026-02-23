@@ -10,7 +10,14 @@ def _first_board_game_id(client: TestClient, headers: dict[str, str]) -> int:
     assert response.status_code == 200
     games = response.json()
     assert isinstance(games, list)
-    assert len(games) > 0
+    if len(games) == 0:
+        create_response = client.post(
+            "/board-games",
+            headers=headers,
+            json={"name": "Catan", "source": "seed"},
+        )
+        assert create_response.status_code == 201
+        return create_response.json()["id"]
     return games[0]["id"]
 
 

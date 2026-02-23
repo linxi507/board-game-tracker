@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class BoardGameCreate(BaseModel):
     """Payload for creating a global catalog board game."""
 
-    name: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=255)
     source: str | None = Field(default=None, max_length=50)
     source_id: str | None = Field(default=None, max_length=100)
 

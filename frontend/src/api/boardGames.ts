@@ -10,6 +10,8 @@ export type BoardGame = {
 
 export async function fetchBoardGames(query?: string): Promise<BoardGame[]> {
   const search = query?.trim();
-  const path = search ? `/board-games?q=${encodeURIComponent(search)}` : "/board-games";
+  const path = search
+    ? `/board-games?query=${encodeURIComponent(search)}`
+    : "/board-games";
   return (await apiFetch(path)) as BoardGame[];
 }
