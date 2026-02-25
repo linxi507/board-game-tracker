@@ -11,12 +11,18 @@ def _create_global_game(client: TestClient, headers: dict[str, str], name: str =
         headers=headers,
         json={"name": name, "source": "seed"},
     )
-    assert response.status_code == 201
-    return response.json()["id"]
+    if response.status_code == 201:
+        return response.json()["id"]
+    assert response.status_code == 400
+    listing = client.get(f"/board-games?query={name}", headers=headers)
+    assert listing.status_code == 200
+    item = next((row for row in listing.json() if row["name"] == name), None)
+    assert item is not None
+    return item["id"]
 
 
 def test_favorite_toggle_and_list(client: TestClient, auth_headers: dict[str, str]) -> None:
-    board_game_id = _create_global_game(client, auth_headers, "Azul")
+    board_game_id = _create_global_game(client, auth_headers, "Terraforming Mars")
 
     toggle_on = client.post(f"/me/favorites/{board_game_id}", headers=auth_headers)
     assert toggle_on.status_code == 200

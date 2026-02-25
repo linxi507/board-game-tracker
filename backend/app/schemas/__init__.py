@@ -1,6 +1,11 @@
 """Pydantic schema modules."""
 
-from app.schemas.board_games import BoardGameCreate, BoardGameRead, BoardGameSummary
+from app.schemas.board_games import (
+    BoardGameCreate,
+    BoardGameRead,
+    BoardGameSearchItem,
+    BoardGameSummary,
+)
 from app.schemas.me import (
     FavoriteRead,
     FavoriteToggleResult,
@@ -14,6 +19,7 @@ from app.schemas.user_games import UserGameCreate, UserGameRead
 __all__ = [
     "BoardGameCreate",
     "BoardGameRead",
+    "BoardGameSearchItem",
     "BoardGameSummary",
     "FavoriteRead",
     "FavoriteToggleResult",

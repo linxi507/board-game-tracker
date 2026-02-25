@@ -32,3 +32,13 @@ class BoardGameSummary(BaseModel):
     name: str
 
     model_config = {"from_attributes": True}
+
+
+class BoardGameSearchItem(BaseModel):
+    """Unified search item for global/custom game selector."""
+
+    key: str
+    id: int
+    name: str
+    source: str
+    is_favorite: bool

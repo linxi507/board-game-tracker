@@ -54,7 +54,7 @@ def get_settings() -> Settings:
         os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
     )
     cors_origins = _parse_cors_origins(os.getenv("CORS_ORIGINS"), app_env)
-    seed_on_startup = _parse_bool(os.getenv("SEED_ON_STARTUP"), default=False)
+    seed_on_startup = _parse_bool(os.getenv("SEED_ON_STARTUP"), default=True)
 
     return Settings(
         app_env=app_env,

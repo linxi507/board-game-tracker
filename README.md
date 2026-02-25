@@ -40,6 +40,29 @@ docker compose exec backend python -m app.scripts.import_bgg_rank_csv
 
 Set `BGG_RANKS_CSV_URL` before running the import script.
 
+### Verify Search + Favorites + Custom Games
+
+```bash
+docker compose up --build
+docker compose exec backend alembic upgrade head
+docker compose exec backend python -m app.scripts.seed_top100_board_games
+```
+
+Search API example:
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:8000/board-games/search?query=Root&limit=20"
+```
+
+Manual smoke checklist:
+
+1. Login in the frontend.
+2. In Log Session search, type `Root` and verify it appears in dropdown.
+3. Select `Root` and submit a session; verify it appears in Recent Sessions.
+4. Click star on a global game and verify it appears in My Collection favorites.
+5. Type a nonsense game name; verify `Add as custom game` appears.
+6. Add custom game and select it; submit session and verify it appears as custom in Recent Sessions.
+
 ## Local Development Setup
 
 ### 1. Start PostgreSQL

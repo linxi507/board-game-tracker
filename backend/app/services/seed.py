@@ -1,64 +1,62 @@
-"""Seed helpers for bootstrapping initial board game catalog data."""
+"""Seed helpers for bootstrapping board game catalog data."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import SessionLocal
 from app.models import BoardGame
 from app.services.board_games import normalize_board_game_name
 
-DEFAULT_BOARD_GAMES = [
-    "Catan",
-    "Terraforming Mars",
-    "Azul",
-    "Wingspan",
-    "Carcassonne",
-    "7 Wonders",
-    "Ticket to Ride",
-    "Pandemic",
-    "Splendor",
-    "Root",
-    "Gloomhaven",
-    "Scythe",
-    "Brass: Birmingham",
-    "Spirit Island",
-    "Everdell",
-    "Dune: Imperium",
-    "The Castles of Burgundy",
-    "Concordia",
-    "Dominion",
-    "Ark Nova",
-]
+
+def _load_top100_names() -> list[str]:
+    path = Path(__file__).resolve().parents[1] / "seed" / "top100_board_games.json"
+    with path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    if not isinstance(payload, list):
+        raise ValueError("top100_board_games.json must be an array of game names.")
+    return [str(name).strip() for name in payload if str(name).strip()]
 
 
-def seed_board_games_if_empty() -> None:
-    """Insert default catalog entries idempotently by normalized_name."""
+def seed_top100_board_games() -> tuple[int, int]:
+    """Idempotently upsert Top100 entries into board_games."""
+    names = _load_top100_names()
     db = SessionLocal()
+    inserted = 0
     try:
-        normalized_defaults = {
-            normalize_board_game_name(name): name for name in DEFAULT_BOARD_GAMES
-        }
-        existing = db.scalars(
-            select(BoardGame.normalized_name).where(
-                BoardGame.normalized_name.in_(list(normalized_defaults.keys()))
+        for name in names:
+            normalized = normalize_board_game_name(name)
+            stmt = insert(BoardGame).values(
+                name=name,
+                normalized_name=normalized,
+                source="seed",
+                source_id=None,
             )
-        ).all()
-        existing_set = set(existing)
-
-        for normalized_name, display_name in normalized_defaults.items():
-            if normalized_name in existing_set:
-                continue
-            db.add(
-                BoardGame(
-                    name=display_name,
-                    normalized_name=normalized_name,
-                    source="seed",
-                )
-            )
+            stmt = stmt.on_conflict_do_nothing(index_elements=["normalized_name"])
+            result = db.execute(stmt)
+            inserted += result.rowcount or 0
         db.commit()
-    except SQLAlchemyError:
-        db.rollback()
     finally:
         db.close()
+    return inserted, len(names)
+
+
+def seed_board_games_if_empty() -> tuple[int, int]:
+    """Seed top100 only when board_games table is empty."""
+    db = SessionLocal()
+    try:
+        existing = db.scalar(select(BoardGame.id).limit(1))
+    except SQLAlchemyError:
+        db.rollback()
+        return 0, 0
+    finally:
+        db.close()
+
+    if existing is not None:
+        return 0, 0
+    return seed_top100_board_games()
