@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { apiFetch, getToken } from "../api/client";
 import LogSessionForm from "../components/LogSessionForm";
+import MyCollection from "../components/MyCollection";
 import SessionsList from "../components/SessionsList";
 import StatsPanel from "../components/StatsPanel";
 
@@ -41,16 +42,22 @@ export default function Dashboard() {
   }, [navigate]);
 
   if (loading) {
-    return <main style={{ margin: "60px auto", maxWidth: 640 }}>Loading...</main>;
+    return <main className="page-shell">Loading...</main>;
   }
 
   return (
-    <main style={{ margin: "60px auto", maxWidth: 640, fontFamily: "sans-serif" }}>
-      <h1>Dashboard</h1>
-      <p>Logged in as: {email}</p>
+    <main className="page-shell">
+      <h1 className="dashboard-title">Game Night Dashboard</h1>
+      <p className="dashboard-user">Logged in as: {email}</p>
       <StatsPanel reloadSignal={reloadCounter} />
-      <LogSessionForm onCreated={() => setReloadCounter((value) => value + 1)} />
-      <SessionsList reloadSignal={reloadCounter} />
+      <MyCollection reloadSignal={reloadCounter} />
+      <section className="split">
+        <LogSessionForm
+          onCreated={() => setReloadCounter((value) => value + 1)}
+          onCollectionChanged={() => setReloadCounter((value) => value + 1)}
+        />
+        <SessionsList reloadSignal={reloadCounter} />
+      </section>
     </main>
   );
 }

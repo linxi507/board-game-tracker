@@ -40,21 +40,26 @@ export default function SessionsList({ reloadSignal }: Props) {
   }
 
   return (
-    <section style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8 }}>
-      <h2 style={{ marginTop: 0 }}>Session History</h2>
+    <section className="panel">
+      <h2 className="panel-title">Recent Sessions</h2>
       {loading && <p>Loading sessions...</p>}
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-      {!loading && !error && sessions.length === 0 && <p>No sessions yet.</p>}
+      {error && <p className="error-text">{error}</p>}
+      {!loading && !error && sessions.length === 0 && <p className="meta-text">No sessions yet.</p>}
       {!loading && !error && sessions.length > 0 && (
-        <ul style={{ paddingLeft: 20, margin: 0 }}>
+        <ul className="session-list">
           {sessions.map((session) => (
-            <li key={session.id} style={{ marginBottom: 10 }}>
-              <div>Game ID: {session.board_game.id}</div>
-              <div>player_count: {session.player_count}</div>
-              <div>played_date: {formatPlayedDate(session.played_at)}</div>
-              <div>placement: {session.placement ?? "-"}</div>
-              <div>duration_minutes: {session.duration_minutes ?? "-"}</div>
-              <div>created_at: {session.created_at}</div>
+            <li key={session.id} className="session-item">
+              <div>
+                <strong>
+                  {session.board_game?.name ?? session.user_custom_game?.name ?? "Unknown game"}
+                </strong>{" "}
+                {session.board_game ? `(#${session.board_game.id})` : "(custom)"}
+              </div>
+              <div>Players: {session.player_count}</div>
+              <div>Played: {formatPlayedDate(session.played_at)}</div>
+              <div>Placement: {session.placement ?? "-"}</div>
+              <div>Duration: {session.duration_minutes ?? "-"} min</div>
+              <div className="meta-text">Created: {session.created_at}</div>
             </li>
           ))}
         </ul>

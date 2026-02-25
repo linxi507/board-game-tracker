@@ -10,6 +10,7 @@ from app.db import Base
 
 if TYPE_CHECKING:
     from app.models.board_game import BoardGame
+    from app.models.user_custom_game import UserCustomGame
     from app.models.user import User
 
 
@@ -27,12 +28,20 @@ class Session(Base):
             "placement IS NULL OR (placement >= 1 AND placement <= player_count)",
             name="ck_sessions_placement_between_1_and_player_count",
         ),
+        CheckConstraint(
+            "(board_game_id IS NOT NULL AND user_custom_game_id IS NULL) OR "
+            "(board_game_id IS NULL AND user_custom_game_id IS NOT NULL)",
+            name="ck_sessions_exactly_one_game_reference",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
-    board_game_id: Mapped[int] = mapped_column(
-        ForeignKey("board_games.id"), index=True, nullable=False
+    board_game_id: Mapped[int | None] = mapped_column(
+        ForeignKey("board_games.id"), index=True, nullable=True
+    )
+    user_custom_game_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_custom_games.id"), index=True, nullable=True
     )
     played_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -46,4 +55,7 @@ class Session(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="sessions")
-    board_game: Mapped["BoardGame"] = relationship(back_populates="sessions")
+    board_game: Mapped["BoardGame | None"] = relationship(back_populates="sessions")
+    user_custom_game: Mapped["UserCustomGame | None"] = relationship(
+        back_populates="sessions"
+    )

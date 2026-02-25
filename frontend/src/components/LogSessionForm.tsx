@@ -1,17 +1,31 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { BoardGame, fetchBoardGames } from "../api/boardGames";
+import {
+  createCustomGame,
+  CustomGame,
+  fetchCustomGames,
+  fetchFavorites,
+  toggleFavorite,
+} from "../api/me";
 import { createSession } from "../api/sessions";
 
 type Props = {
   onCreated: () => void;
+  onCollectionChanged?: () => void;
 };
 
-export default function LogSessionForm({ onCreated }: Props) {
+type Selection =
+  | { type: "global"; id: number; name: string }
+  | { type: "custom"; id: number; name: string }
+  | null;
+
+export default function LogSessionForm({ onCreated, onCollectionChanged }: Props) {
   const [query, setQuery] = useState("");
   const [boardGames, setBoardGames] = useState<BoardGame[]>([]);
-  const [filteredGames, setFilteredGames] = useState<BoardGame[]>([]);
-const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  const [customGames, setCustomGames] = useState<CustomGame[]>([]);
+  const [selection, setSelection] = useState<Selection>(null);
   const [playedDate, setPlayedDate] = useState("");
   const [playerCount, setPlayerCount] = useState(4);
   const [placement, setPlacement] = useState("");
@@ -20,66 +34,119 @@ const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [loadingGames, setLoadingGames] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+
+  async function loadAll() {
+    setLoadingGames(true);
+    setLoadError("");
+    try {
+      const [globalGames, favoriteRows, customRows] = await Promise.all([
+        fetchBoardGames(),
+        fetchFavorites(),
+        fetchCustomGames(),
+      ]);
+      setBoardGames(globalGames);
+      setFavorites(new Set(favoriteRows.map((row) => row.board_game.id)));
+      setCustomGames(customRows);
+      if (!selection) {
+        if (customRows.length > 0) {
+          setSelection({ type: "custom", id: customRows[0].id, name: customRows[0].name });
+        } else if (globalGames.length > 0) {
+          setSelection({ type: "global", id: globalGames[0].id, name: globalGames[0].name });
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch board games";
+      setLoadError(
+        `Unable to load games: ${message}. Check login state, CORS, and API base URL.`
+      );
+    } finally {
+      setLoadingGames(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadBoardGames() {
-      try {
-        const items = await fetchBoardGames();
-        setBoardGames(items);
-        setFilteredGames(items);
-        if (items.length > 0) {
-          setSelectedGameId(items[0].id);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load board games");
-      } finally {
-        setLoadingGames(false);
-      }
-    }
-
-    void loadBoardGames();
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const lowerQuery = query.trim().toLowerCase();
-    if (!lowerQuery) {
-      setFilteredGames(boardGames);
-      return;
+  const filteredResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const customMatches = customGames
+      .filter((game) => game.name.toLowerCase().includes(q))
+      .map((game) => ({ type: "custom" as const, id: game.id, name: game.name }));
+
+    const favoriteMatches = boardGames
+      .filter((game) => favorites.has(game.id))
+      .filter((game) => game.name.toLowerCase().includes(q))
+      .map((game) => ({ type: "global" as const, id: game.id, name: game.name }));
+
+    const otherMatches = boardGames
+      .filter((game) => !favorites.has(game.id))
+      .filter((game) => game.name.toLowerCase().includes(q))
+      .map((game) => ({ type: "global" as const, id: game.id, name: game.name }));
+
+    return [...customMatches, ...favoriteMatches, ...otherMatches];
+  }, [query, boardGames, customGames, favorites]);
+
+  async function handleToggleFavorite(boardGameId: number) {
+    try {
+      const result = await toggleFavorite(boardGameId);
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (result.is_favorite) {
+          next.add(boardGameId);
+        } else {
+          next.delete(boardGameId);
+        }
+        return next;
+      });
+      onCollectionChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle favorite");
     }
+  }
 
-    const filtered = boardGames.filter((game) =>
-      game.name.toLowerCase().includes(lowerQuery)
-    );
-    setFilteredGames(filtered);
-  }, [query, boardGames]);
-
-  const selectedGame = boardGames.find((game) => game.id === selectedGameId) ?? null;
+  async function handleAddCustomFromQuery() {
+    const name = query.trim();
+    if (!name) return;
+    try {
+      const created = await createCustomGame(name);
+      setCustomGames((prev) => [created, ...prev]);
+      setSelection({ type: "custom", id: created.id, name: created.name });
+      setError("");
+      onCollectionChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add custom game");
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
-    if (!selectedGameId) {
-      setError("Please select a board game");
+    if (!selection) {
+      setError("Please select a game");
+      return;
+    }
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(playedDate)) {
+      setError("played_date must be MM/DD/YYYY");
       return;
     }
 
     setSubmitting(true);
     try {
-      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(playedDate)) {
-        throw new Error("played_date must be MM/DD/YYYY");
-      }
       await createSession({
-        board_game_id: selectedGameId,
+        board_game_id: selection.type === "global" ? selection.id : undefined,
+        user_custom_game_id: selection.type === "custom" ? selection.id : undefined,
         played_date: playedDate,
         player_count: Number(playerCount),
         placement: placement ? Number(placement) : undefined,
         duration_minutes: durationMinutes ? Number(durationMinutes) : undefined,
         notes: notes || undefined,
       });
-
-      setPlayerCount(4);
       setPlayedDate("");
+      setPlayerCount(4);
       setPlacement("");
       setDurationMinutes("");
       setNotes("");
@@ -92,114 +159,134 @@ const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   }
 
   return (
-    <section style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, marginBottom: 20 }}>
-      <h2 style={{ marginTop: 0 }}>Log Session</h2>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
-        <label>
-          Search Board Game
+    <section className="panel">
+      <h2 className="panel-title">Log Session</h2>
+      {loadError && <p className="error-text" style={{ marginBottom: 10 }}>{loadError}</p>}
+      <form onSubmit={handleSubmit} className="form-grid">
+        <label className="field">
+          Search board game
           <input
             type="text"
             placeholder="Search board game..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            disabled={loadingGames || boardGames.length === 0}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            disabled={loadingGames}
+            className="input"
           />
         </label>
 
-        <div>
-          <strong>Selected game:</strong> {selectedGame ? selectedGame.name : "None"}
-        </div>
+        <p className="meta-text">
+          <strong>Selected:</strong> {selection ? selection.name : "None"}
+        </p>
 
-        <div style={{ border: "1px solid #ddd", borderRadius: 6, maxHeight: 180, overflowY: "auto" }}>
-          {filteredGames.length === 0 && (
-            <div style={{ padding: 8, color: "#555" }}>No matching board games.</div>
+        <div className="search-list">
+          {filteredResults.map((item) => {
+            const isSelected = selection?.type === item.type && selection.id === item.id;
+            const isGlobal = item.type === "global";
+            const isFav = isGlobal && favorites.has(item.id);
+            return (
+              <div key={`${item.type}-${item.id}`} style={{ display: "flex", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => setSelection(item)}
+                  className={`search-item ${isSelected ? "active" : ""}`}
+                  style={{ flex: 1 }}
+                >
+                  {item.name}
+                </button>
+                {isGlobal && (
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleFavorite(item.id)}
+                    title={isFav ? "Unfavorite" : "Favorite"}
+                    style={{
+                      border: 0,
+                      background: "transparent",
+                      cursor: "pointer",
+                      padding: "0 10px",
+                      fontSize: "1.1rem",
+                    }}
+                  >
+                    {isFav ? "⭐" : "☆"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {filteredResults.length === 0 && (
+            <div style={{ padding: 10 }}>
+              <p className="meta-text" style={{ marginBottom: 8 }}>
+                No matching board games.
+              </p>
+              {query.trim() && (
+                <button type="button" className="btn" onClick={() => void handleAddCustomFromQuery()}>
+                  Add as custom game
+                </button>
+              )}
+            </div>
           )}
-          {filteredGames.map((game) => (
-            <button
-              key={game.id}
-              type="button"
-              onClick={() => setSelectedGameId(game.id)}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: 8,
-                border: "none",
-                borderBottom: "1px solid #eee",
-                background: selectedGameId === game.id ? "#f0f6ff" : "white",
-                cursor: "pointer",
-              }}
-            >
-              {game.name}
-            </button>
-          ))}
         </div>
 
-        <label>
-          Played Date
+        <label className="field">
+          Played date
           <input
             type="text"
             placeholder="MM/DD/YYYY"
             value={playedDate}
             onChange={(e) => setPlayedDate(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
             required
           />
         </label>
 
-        <label>
-          Player Count
+        <label className="field">
+          Player count
           <input
             type="number"
             min={1}
             value={playerCount}
             onChange={(e) => setPlayerCount(Number(e.target.value))}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
             required
           />
         </label>
 
-        <label>
+        <label className="field">
           Placement (optional)
           <input
             type="number"
             min={1}
             value={placement}
             onChange={(e) => setPlacement(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
 
-        <label>
-          Duration Minutes (optional)
+        <label className="field">
+          Duration minutes (optional)
           <input
             type="number"
             min={1}
             value={durationMinutes}
             onChange={(e) => setDurationMinutes(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
 
-        <label>
+        <label className="field">
           Notes (optional)
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-            rows={3}
+            className="textarea"
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={submitting || loadingGames || boardGames.length === 0 || !selectedGameId}
-        >
+        <button type="submit" className="btn" disabled={submitting || loadingGames || !selection}>
           {submitting ? "Saving..." : "Save Session"}
         </button>
       </form>
-      {error && <p style={{ color: "crimson", marginBottom: 0 }}>{error}</p>}
+      {error && <p className="error-text" style={{ marginTop: 12 }}>{error}</p>}
     </section>
   );
 }

@@ -47,55 +47,56 @@ export default function Register() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "60px auto", fontFamily: "sans-serif" }}>
-      <h1>Register</h1>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
+    <main className="auth-shell">
+      <h1 className="auth-title">Create Account</h1>
+      <p className="auth-subtitle">Build your board game profile in seconds.</p>
+      <form onSubmit={handleSubmit} className="form-grid">
+        <label className="field">
           Username
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
-        <label>
+        <label className="field">
           Email
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
-        <label>
+        <label className="field">
           Password
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
-        <label>
+        <label className="field">
           Confirm Password
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
-        <button type="submit" disabled={loading} style={{ padding: 10 }}>
+        <button type="submit" disabled={loading} className="btn">
           {loading ? "Creating account..." : "Create Account"}
         </button>
       </form>
-      {error && <p style={{ color: "crimson", marginTop: 12 }}>{error}</p>}
-      <p style={{ marginTop: 12 }}>
+      {error && <p className="error-text" style={{ marginTop: 12 }}>{error}</p>}
+      <p className="meta-text" style={{ marginTop: 12 }}>
         Already have an account? <Link to="/login">Login</Link>
       </p>
     </main>

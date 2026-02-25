@@ -55,7 +55,9 @@ def run_migrations(test_db_url: str) -> None:
 @pytest.fixture()
 def clean_db(db_engine) -> Generator[None, None, None]:
     """Truncate application tables so test order does not matter."""
-    table_list = "sessions,user_games,board_games,users"
+    table_list = (
+        "sessions,user_favorite_games,user_custom_games,user_games,board_games,users"
+    )
     with db_engine.begin() as conn:
         conn.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
     yield

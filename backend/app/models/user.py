@@ -9,6 +9,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
 if TYPE_CHECKING:
+    from app.models.user_custom_game import UserCustomGame
+    from app.models.user_favorite_game import UserFavoriteGame
     from app.models.session import Session
     from app.models.user_game import UserGame
 
@@ -30,3 +32,5 @@ class User(Base):
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user")
     user_games: Mapped[list["UserGame"]] = relationship(back_populates="user")
+    favorite_games: Mapped[list["UserFavoriteGame"]] = relationship(back_populates="user")
+    custom_games: Mapped[list["UserCustomGame"]] = relationship(back_populates="user")

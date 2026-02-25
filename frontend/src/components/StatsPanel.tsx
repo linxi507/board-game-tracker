@@ -29,32 +29,45 @@ export default function StatsPanel({ reloadSignal }: Props) {
   }, [reloadSignal]);
 
   return (
-    <section style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, marginBottom: 20 }}>
-      <h2 style={{ marginTop: 0 }}>Stats Summary</h2>
+    <section className="panel">
+      <h2 className="panel-title">Session Pulse</h2>
       {loading && <p>Loading stats...</p>}
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
       {!loading && !error && stats && (
         <>
-          <div style={{ display: "grid", gap: 6 }}>
-            <div>Total sessions: {stats.total_sessions}</div>
-            <div>Total play time (minutes): {stats.total_play_time_minutes}</div>
-            <div>
-              Avg duration:{" "}
+          <div className="stats-grid">
+            <div className="stats-item">
+              <p className="stats-label">Total sessions</p>
+              <p className="stats-value">{stats.total_sessions}</p>
+            </div>
+            <div className="stats-item">
+              <p className="stats-label">Play time (minutes)</p>
+              <p className="stats-value">{stats.total_play_time_minutes}</p>
+            </div>
+            <div className="stats-item">
+              <p className="stats-label">Avg duration</p>
+              <p className="stats-value">
               {stats.average_duration_minutes === null
                 ? "-"
                 : stats.average_duration_minutes.toFixed(2)}
+              </p>
             </div>
-            <div>
-              Win rate:{" "}
+            <div className="stats-item">
+              <p className="stats-label">Win rate</p>
+              <p className="stats-value">
               {stats.win_rate === null ? "-" : `${(stats.win_rate * 100).toFixed(2)}%`}
+              </p>
             </div>
-            <div>Sessions last 30 days: {stats.sessions_last_30_days}</div>
+            <div className="stats-item">
+              <p className="stats-label">Sessions last 30 days</p>
+              <p className="stats-value">{stats.sessions_last_30_days}</p>
+            </div>
           </div>
 
-          <h3 style={{ marginBottom: 8 }}>Top Played Games</h3>
-          {stats.most_played_games.length === 0 && <p style={{ marginTop: 0 }}>No games played yet.</p>}
+          <h3 style={{ margin: "14px 0 8px" }}>Top Played Games</h3>
+          {stats.most_played_games.length === 0 && <p className="meta-text">No games played yet.</p>}
           {stats.most_played_games.length > 0 && (
-            <ul style={{ marginTop: 0, paddingLeft: 20 }}>
+            <ul style={{ marginTop: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
               {stats.most_played_games.map((game) => (
                 <li key={game.board_game_id}>
                   {game.name} ({game.session_count})

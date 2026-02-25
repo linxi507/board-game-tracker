@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.board_games import router as board_games_router
+from app.api.me import router as me_router
 from app.api.sessions import router as sessions_router
 from app.api.stats import router as stats_router
 from app.api.user_games import router as user_games_router
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(board_games_router)
+app.include_router(me_router)
 app.include_router(user_games_router)
 app.include_router(sessions_router)
 app.include_router(stats_router)

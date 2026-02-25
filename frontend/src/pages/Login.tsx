@@ -28,38 +28,39 @@ export default function Login() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "60px auto", fontFamily: "sans-serif" }}>
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
+    <main className="auth-shell">
+      <h1 className="auth-title">Sign In</h1>
+      <p className="auth-subtitle">Track every board game night in one place.</p>
+      <form onSubmit={handleSubmit} className="form-grid">
+        <label className="field">
           Email or Username
           <input
             type="text"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
 
-        <label>
+        <label className="field">
           Password
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            className="input"
           />
         </label>
 
-        <button type="submit" disabled={loading} style={{ padding: 10 }}>
+        <button type="submit" disabled={loading} className="btn">
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
 
-      {error && <p style={{ color: "crimson", marginTop: 12 }}>{error}</p>}
-      <p style={{ marginTop: 12 }}>
+      {error && <p className="error-text" style={{ marginTop: 12 }}>{error}</p>}
+      <p className="meta-text" style={{ marginTop: 12 }}>
         No account? <Link to="/register">Register</Link>
       </p>
     </main>

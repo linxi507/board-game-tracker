@@ -10,6 +10,7 @@ from app.db import Base
 
 if TYPE_CHECKING:
     from app.models.session import Session
+    from app.models.user_favorite_game import UserFavoriteGame
     from app.models.user_game import UserGame
 
 
@@ -38,4 +39,5 @@ class BoardGame(Base):
     )
 
     user_games: Mapped[list["UserGame"]] = relationship(back_populates="board_game")
+    favorites: Mapped[list["UserFavoriteGame"]] = relationship(back_populates="board_game")
     sessions: Mapped[list["Session"]] = relationship(back_populates="board_game")

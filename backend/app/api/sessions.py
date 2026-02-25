@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
 from app.db import get_db
-from app.models import BoardGame, Session as PlaySession, User
+from app.models import BoardGame, Session as PlaySession, User, UserCustomGame
 from app.schemas.sessions import SessionCreate, SessionRead
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -23,12 +23,25 @@ def create_session(
     db: Session = Depends(get_db),
 ) -> PlaySession:
     """Create a new play session for the authenticated user."""
-    board_game = db.get(BoardGame, payload.board_game_id)
-    if board_game is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Board game not found",
+    if payload.board_game_id is not None:
+        board_game = db.get(BoardGame, payload.board_game_id)
+        if board_game is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Board game not found",
+            )
+    else:
+        custom_game = db.scalar(
+            select(UserCustomGame).where(
+                UserCustomGame.id == payload.user_custom_game_id,
+                UserCustomGame.user_id == current_user.id,
+            )
         )
+        if custom_game is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Custom game not found",
+            )
 
     try:
         parsed_date = datetime.strptime(payload.played_date, "%m/%d/%Y")
@@ -41,6 +54,7 @@ def create_session(
     session_data = {
         "user_id": current_user.id,
         "board_game_id": payload.board_game_id,
+        "user_custom_game_id": payload.user_custom_game_id,
         "played_at": parsed_date.replace(tzinfo=UTC),
         "player_count": payload.player_count,
         "placement": payload.placement,
@@ -54,7 +68,7 @@ def create_session(
 
     created = db.scalar(
         select(PlaySession)
-        .options(joinedload(PlaySession.board_game))
+        .options(joinedload(PlaySession.board_game), joinedload(PlaySession.user_custom_game))
         .where(PlaySession.id == play_session.id, PlaySession.user_id == current_user.id)
     )
     if created is None:
@@ -76,7 +90,7 @@ def list_sessions(
     """List play sessions for the authenticated user."""
     statement = (
         select(PlaySession)
-        .options(joinedload(PlaySession.board_game))
+        .options(joinedload(PlaySession.board_game), joinedload(PlaySession.user_custom_game))
         .where(PlaySession.user_id == current_user.id)
     )
     if board_game_id is not None:

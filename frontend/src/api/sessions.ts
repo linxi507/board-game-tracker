@@ -5,7 +5,11 @@ export type SessionItem = {
   board_game: {
     id: number;
     name: string;
-  };
+  } | null;
+  user_custom_game: {
+    id: number;
+    name: string;
+  } | null;
   played_at: string;
   player_count: number;
   placement: number | null;
@@ -15,7 +19,8 @@ export type SessionItem = {
 };
 
 export type CreateSessionPayload = {
-  board_game_id: number;
+  board_game_id?: number;
+  user_custom_game_id?: number;
   played_date: string;
   player_count: number;
   placement?: number;

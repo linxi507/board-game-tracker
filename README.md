@@ -19,6 +19,12 @@ Seed the global board game catalog manually (recommended):
 docker compose exec backend python -m app.scripts.seed_board_games
 ```
 
+Seed the Top 100 starter catalog:
+
+```bash
+docker compose exec backend python -m app.scripts.seed_top100_board_games
+```
+
 Optional startup seeding:
 
 ```bash
