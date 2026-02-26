@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import case, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,9 +18,10 @@ router = APIRouter(prefix="/board-games", tags=["board-games"])
 
 @router.get("", response_model=list[BoardGameRead])
 def list_board_games(
+    response: Response,
     query: str | None = Query(default=None),
     q: str | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=20, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -28,8 +29,15 @@ def list_board_games(
     """List global catalog games with optional name search."""
     search_term = query if query is not None else q
     statement = select(BoardGame)
+    count_statement = select(func.count(BoardGame.id))
     if search_term:
-        statement = statement.where(BoardGame.name.ilike(f"%{search_term}%"))
+        predicate = BoardGame.name.ilike(f"%{search_term}%")
+        statement = statement.where(predicate)
+        count_statement = count_statement.where(predicate)
+    total = db.scalar(count_statement) or 0
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Offset"] = str(offset)
     statement = statement.order_by(BoardGame.name.asc()).limit(limit).offset(offset)
     return list(db.scalars(statement).all())
 
