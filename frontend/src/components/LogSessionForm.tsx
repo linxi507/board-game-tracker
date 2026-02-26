@@ -148,6 +148,17 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
   }, [suggestions]);
 
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const renderedGlobalCount = suggestions.filter((item) => item.source === "global").length;
+    if (renderedGlobalCount !== globalGames.length) {
+      console.warn("Suggestion/global count mismatch", {
+        renderedGlobalCount,
+        globalGamesCount: globalGames.length,
+      });
+    }
+  }, [globalGames.length, suggestions]);
+
+  useEffect(() => {
     function handleDocumentClick(event: MouseEvent) {
       if (!searchContainerRef.current) return;
       if (!searchContainerRef.current.contains(event.target as Node)) {
@@ -334,9 +345,9 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
         </p>
       )}
       <form onSubmit={handleSubmit} className="form-grid">
-        <label className="field">
-          Search board game
-          <div ref={searchContainerRef}>
+        <div ref={searchContainerRef}>
+          <label className="field">
+            Search board game
             <input
               type="text"
               value={searchTerm}
@@ -356,78 +367,78 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
                 dropdownOpen && suggestions[activeIndex] ? `${listboxId}-${activeIndex}` : undefined
               }
             />
-          </div>
-        </label>
+          </label>
 
-        {dropdownOpen && (
-          <div ref={listRef} className="search-list" id={listboxId} role="listbox">
-            {loadingGames && (
-              <div style={{ padding: 10 }} className="meta-text">
-                Loading...
-              </div>
-            )}
-            {!loadingGames &&
-              suggestions.map((item, index) => (
-                <div
-                  key={item.key}
-                  id={`${listboxId}-${index}`}
-                  role="option"
-                  aria-selected={activeIndex === index}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  <button
-                    type="button"
-                    className={`search-item ${activeIndex === index ? "active" : ""}`}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => selectSuggestion(item)}
-                    style={{ flex: 1 }}
+          {dropdownOpen && (
+            <div ref={listRef} className="search-list" id={listboxId} role="listbox">
+              {loadingGames && (
+                <div style={{ padding: 10 }} className="meta-text">
+                  Loading...
+                </div>
+              )}
+              {!loadingGames &&
+                suggestions.map((item, index) => (
+                  <div
+                    key={item.key}
+                    id={`${listboxId}-${index}`}
+                    role="option"
+                    aria-selected={activeIndex === index}
+                    style={{ display: "flex", alignItems: "center" }}
                   >
-                    {item.name}
-                  </button>
-                  {item.source === "global" && (
                     <button
                       type="button"
-                      className={`star-btn ${item.isFavorite ? "star-btn-active" : ""}`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void handleToggleFavorite(item);
-                      }}
-                      title={item.isFavorite ? "Remove favorite" : "Add favorite"}
+                      className={`search-item ${activeIndex === index ? "active" : ""}`}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => selectSuggestion(item)}
+                      style={{ flex: 1 }}
                     >
-                      {item.isFavorite ? "\u2605" : "\u2606"}
+                      {item.name}
+                    </button>
+                    {item.source === "global" && (
+                      <button
+                        type="button"
+                        className={`star-btn ${item.isFavorite ? "star-btn-active" : ""}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          void handleToggleFavorite(item);
+                        }}
+                        title={item.isFavorite ? "Remove favorite" : "Add favorite"}
+                      >
+                        {item.isFavorite ? "\u2605" : "\u2606"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+              {!loadingGames && !suggestions.length && (
+                <div style={{ padding: 10 }}>
+                  <p className="meta-text" style={{ marginBottom: 8 }}>
+                    No matching board games.
+                  </p>
+                  {searchTerm.trim() && (
+                    <button type="button" className="btn" onClick={() => void handleAddCustomGame()}>
+                      Add as custom game
                     </button>
                   )}
                 </div>
-              ))}
+              )}
 
-            {!loadingGames && !suggestions.length && (
-              <div style={{ padding: 10 }}>
-                <p className="meta-text" style={{ marginBottom: 8 }}>
-                  No matching board games.
-                </p>
-                {searchTerm.trim() && (
-                  <button type="button" className="btn" onClick={() => void handleAddCustomGame()}>
-                    Add as custom game
+              {!loadingGames && hasMoreGlobalGames && (
+                <div className="search-footer">
+                  <button
+                    type="button"
+                    className="search-load-more"
+                    onClick={() => void loadMoreGlobalGames()}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Loading..." : "Load more"}
                   </button>
-                )}
-              </div>
-            )}
-
-            {!loadingGames && hasMoreGlobalGames && (
-              <div className="search-footer">
-                <button
-                  type="button"
-                  className="search-load-more"
-                  onClick={() => void loadMoreGlobalGames()}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? "Loading..." : "Load more"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <p className="meta-text">
           <strong>Selected:</strong> {selectedGame ? selectedGame.name : "None"}

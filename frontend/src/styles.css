@@ -201,6 +201,9 @@ a:hover {
 }
 
 .search-list {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   max-height: 260px;
