@@ -11,6 +11,7 @@ from app.api.deps import get_current_user
 from app.db import get_db
 from app.models import BoardGame, User, UserCustomGame, UserFavoriteGame
 from app.schemas.me import (
+    FavoriteCreate,
     FavoriteRead,
     FavoriteToggleResult,
     UserCustomGameCreate,
@@ -61,6 +62,52 @@ def toggle_favorite(
     db.add(UserFavoriteGame(user_id=current_user.id, board_game_id=board_game_id))
     db.commit()
     return FavoriteToggleResult(board_game_id=board_game_id, is_favorite=True)
+
+
+@router.post("/favorites", response_model=FavoriteToggleResult)
+def add_favorite(
+    payload: FavoriteCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FavoriteToggleResult:
+    """Add a board game to favorites."""
+    board_game = db.get(BoardGame, payload.board_game_id)
+    if board_game is None:
+        raise HTTPException(status_code=404, detail="Board game not found")
+
+    favorite = db.scalar(
+        select(UserFavoriteGame).where(
+            UserFavoriteGame.user_id == current_user.id,
+            UserFavoriteGame.board_game_id == payload.board_game_id,
+        )
+    )
+    if favorite is not None:
+        return FavoriteToggleResult(board_game_id=payload.board_game_id, is_favorite=True)
+
+    db.add(UserFavoriteGame(user_id=current_user.id, board_game_id=payload.board_game_id))
+    db.commit()
+    return FavoriteToggleResult(board_game_id=payload.board_game_id, is_favorite=True)
+
+
+@router.delete("/favorites/{board_game_id}", response_model=FavoriteToggleResult)
+def remove_favorite(
+    board_game_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FavoriteToggleResult:
+    """Remove a board game from favorites."""
+    favorite = db.scalar(
+        select(UserFavoriteGame).where(
+            UserFavoriteGame.user_id == current_user.id,
+            UserFavoriteGame.board_game_id == board_game_id,
+        )
+    )
+    if favorite is None:
+        return FavoriteToggleResult(board_game_id=board_game_id, is_favorite=False)
+
+    db.delete(favorite)
+    db.commit()
+    return FavoriteToggleResult(board_game_id=board_game_id, is_favorite=False)
 
 
 @router.get("/custom-games", response_model=list[UserCustomGameRead])

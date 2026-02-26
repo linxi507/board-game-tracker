@@ -37,6 +37,24 @@ def test_favorite_toggle_and_list(client: TestClient, auth_headers: dict[str, st
     assert toggle_off.json()["is_favorite"] is False
 
 
+def test_favorite_add_and_remove_endpoints(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    board_game_id = _create_global_game(client, auth_headers, "Azul")
+
+    add_response = client.post(
+        "/me/favorites",
+        headers=auth_headers,
+        json={"board_game_id": board_game_id},
+    )
+    assert add_response.status_code == 200
+    assert add_response.json()["is_favorite"] is True
+
+    remove_response = client.delete(f"/me/favorites/{board_game_id}", headers=auth_headers)
+    assert remove_response.status_code == 200
+    assert remove_response.json()["is_favorite"] is False
+
+
 def test_create_custom_game_and_session(client: TestClient, auth_headers: dict[str, str]) -> None:
     custom = client.post("/me/custom-games", headers=auth_headers, json={"name": "My Homebrew"})
     assert custom.status_code == 201

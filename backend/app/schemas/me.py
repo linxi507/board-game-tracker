@@ -14,6 +14,12 @@ class FavoriteToggleResult(BaseModel):
     is_favorite: bool
 
 
+class FavoriteCreate(BaseModel):
+    """Create favorite payload."""
+
+    board_game_id: int
+
+
 class FavoriteRead(BaseModel):
     """One favorite game entry for current user."""
 

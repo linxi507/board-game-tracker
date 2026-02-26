@@ -24,9 +24,16 @@ export async function fetchFavorites(): Promise<FavoriteGame[]> {
   return (await apiFetch("/me/favorites")) as FavoriteGame[];
 }
 
-export async function toggleFavorite(boardGameId: number): Promise<FavoriteToggleResult> {
-  return (await apiFetch(`/me/favorites/${boardGameId}`, {
+export async function addFavorite(boardGameId: number): Promise<FavoriteToggleResult> {
+  return (await apiFetch("/me/favorites", {
     method: "POST",
+    body: JSON.stringify({ board_game_id: boardGameId }),
+  })) as FavoriteToggleResult;
+}
+
+export async function removeFavorite(boardGameId: number): Promise<FavoriteToggleResult> {
+  return (await apiFetch(`/me/favorites/${boardGameId}`, {
+    method: "DELETE",
   })) as FavoriteToggleResult;
 }
 
