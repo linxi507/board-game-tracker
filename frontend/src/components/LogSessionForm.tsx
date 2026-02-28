@@ -28,6 +28,25 @@ type Suggestion = {
 
 const PAGE_SIZE = 20;
 
+function StarIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden="true"
+      className="star-icon"
+      fill={active ? "#fbbf24" : "none"}
+      stroke={active ? "#f59e0b" : "#97a39b"}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3.8l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 17l-5.2 2.8 1-5.8-4.2-4.1 5.8-.8L12 3.8z" />
+    </svg>
+  );
+}
+
 export default function LogSessionForm({ onCreated, onCollectionChanged }: Props) {
   const navigate = useNavigate();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
@@ -405,7 +424,7 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
                         }}
                         title={item.isFavorite ? "Remove favorite" : "Add favorite"}
                       >
-                        {item.isFavorite ? "\u2605" : "\u2606"}
+                        <StarIcon active={item.isFavorite} />
                       </button>
                     )}
                   </div>
