@@ -15,18 +15,23 @@ from app.services.board_games import normalize_board_game_name
 
 router = APIRouter(prefix="/board-games", tags=["board-games"])
 
+DEFAULT_LIMIT = 20
+MAX_LIMIT = 100
+
 
 @router.get("", response_model=list[BoardGameRead])
 def list_board_games(
     response: Response,
     query: str | None = Query(default=None),
     q: str | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=DEFAULT_LIMIT),
+    offset: int = Query(default=0),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[BoardGame]:
     """List global catalog games with optional name search."""
+    limit = min(max(limit, 1), MAX_LIMIT)
+    offset = max(offset, 0)
     search_term = query if query is not None else q
     statement = select(BoardGame)
     count_statement = select(func.count(BoardGame.id))

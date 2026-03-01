@@ -72,3 +72,41 @@ def test_create_custom_game_and_session(client: TestClient, auth_headers: dict[s
     assert created_session.status_code == 201
     assert created_session.json()["user_custom_game"]["id"] == custom_id
     assert created_session.json()["board_game"] is None
+
+
+def test_delete_custom_game_succeeds_when_not_used(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    custom = client.post("/me/custom-games", headers=auth_headers, json={"name": "Delete Me"})
+    assert custom.status_code == 201
+    custom_id = custom.json()["id"]
+
+    deleted = client.delete(f"/me/custom-games/{custom_id}", headers=auth_headers)
+    assert deleted.status_code == 204
+
+    listing = client.get("/me/custom-games", headers=auth_headers)
+    assert listing.status_code == 200
+    assert all(item["id"] != custom_id for item in listing.json())
+
+
+def test_delete_custom_game_conflict_when_used_by_session(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    custom = client.post("/me/custom-games", headers=auth_headers, json={"name": "Used Custom"})
+    assert custom.status_code == 201
+    custom_id = custom.json()["id"]
+
+    created_session = client.post(
+        "/sessions",
+        headers=auth_headers,
+        json={
+            "user_custom_game_id": custom_id,
+            "played_date": "02/24/2026",
+            "player_count": 3,
+        },
+    )
+    assert created_session.status_code == 201
+
+    deleted = client.delete(f"/me/custom-games/{custom_id}", headers=auth_headers)
+    assert deleted.status_code == 409
+    assert deleted.json()["detail"] == "Cannot delete: custom game is used by sessions"

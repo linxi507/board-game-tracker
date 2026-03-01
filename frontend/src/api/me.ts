@@ -47,3 +47,9 @@ export async function createCustomGame(name: string): Promise<CustomGame> {
     body: JSON.stringify({ name }),
   })) as CustomGame;
 }
+
+export async function deleteCustomGame(customGameId: number): Promise<void> {
+  await apiFetch(`/me/custom-games/${customGameId}`, {
+    method: "DELETE",
+  });
+}

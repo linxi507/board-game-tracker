@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
 from app.db import get_db
-from app.models import BoardGame, User, UserCustomGame, UserFavoriteGame
+from app.models import BoardGame, Session as PlaySession, User, UserCustomGame, UserFavoriteGame
 from app.schemas.me import (
     FavoriteCreate,
     FavoriteRead,
@@ -156,3 +156,36 @@ def create_custom_game(
 
     db.refresh(custom_game)
     return custom_game
+
+
+@router.delete("/custom-games/{custom_game_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_custom_game(
+    custom_game_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Delete a custom game for the authenticated user when not referenced by sessions."""
+    custom_game = db.scalar(
+        select(UserCustomGame).where(
+            UserCustomGame.id == custom_game_id,
+            UserCustomGame.user_id == current_user.id,
+        )
+    )
+    if custom_game is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Custom game not found")
+
+    in_use = db.scalar(
+        select(PlaySession.id).where(
+            PlaySession.user_id == current_user.id,
+            PlaySession.user_custom_game_id == custom_game_id,
+        )
+    )
+    if in_use is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete: custom game is used by sessions",
+        )
+
+    db.delete(custom_game)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

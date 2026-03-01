@@ -63,6 +63,17 @@ Manual smoke checklist:
 5. Type a nonsense game name; verify `Add as custom game` appears.
 6. Add custom game and select it; submit session and verify it appears as custom in Recent Sessions.
 
+### Verify Board Game Paging + Custom Game Delete
+
+1. Login and open Dashboard.
+2. In Network tab, search `a` in Log Session and verify:
+   - `GET /board-games?q=a&limit=20&offset=0` returns up to 20 items.
+3. Click `Load more` in the dropdown and verify:
+   - next request uses `offset=20` and appends results.
+4. In `My Collection` -> `Custom Games`, click `Delete` on a custom game:
+   - not referenced by sessions -> deleted successfully.
+   - referenced by sessions -> API returns `409` and UI shows a friendly message.
+
 ## Local Development Setup
 
 ### 1. Start PostgreSQL

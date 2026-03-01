@@ -82,3 +82,33 @@ def test_board_games_limit_and_offset_are_respected(
     assert second_page.status_code == 200
     second_items = second_page.json()
     assert len(second_items) >= 5
+
+
+def test_board_games_limit_is_clamped_to_100(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    base = "Clamp Limit Check"
+    for index in range(130):
+        response = client.post(
+            "/board-games",
+            headers=auth_headers,
+            json={"name": f"{base} {index:03d}", "source": "seed"},
+        )
+        assert response.status_code in (201, 400)
+
+    first_page = client.get(
+        "/board-games?query=Clamp%20Limit%20Check&limit=200&offset=0",
+        headers=auth_headers,
+    )
+    assert first_page.status_code == 200
+    first_items = first_page.json()
+    assert len(first_items) == 100
+    assert first_page.headers.get("X-Limit") == "100"
+
+    second_page = client.get(
+        "/board-games?query=Clamp%20Limit%20Check&limit=200&offset=100",
+        headers=auth_headers,
+    )
+    assert second_page.status_code == 200
+    second_items = second_page.json()
+    assert len(second_items) >= 30
