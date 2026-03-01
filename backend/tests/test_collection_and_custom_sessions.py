@@ -88,6 +88,10 @@ def test_delete_custom_game_succeeds_when_not_used(
     assert listing.status_code == 200
     assert all(item["id"] != custom_id for item in listing.json())
 
+    search = client.get("/board-games?q=Delete%20Me&limit=50&offset=0", headers=auth_headers)
+    assert search.status_code == 200
+    assert all(item["key"] != f"custom:{custom_id}" for item in search.json())
+
 
 def test_delete_custom_game_conflict_when_used_by_session(
     client: TestClient, auth_headers: dict[str, str]

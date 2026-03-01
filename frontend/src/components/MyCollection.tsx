@@ -4,9 +4,10 @@ import { deleteCustomGame, fetchCustomGames, fetchFavorites } from "../api/me";
 
 type Props = {
   reloadSignal: number;
+  onCollectionChanged?: () => void;
 };
 
-export default function MyCollection({ reloadSignal }: Props) {
+export default function MyCollection({ reloadSignal, onCollectionChanged }: Props) {
   const [favoriteNames, setFavoriteNames] = useState<string[]>([]);
   const [customGames, setCustomGames] = useState<Array<{ id: number; name: string }>>([]);
   const [error, setError] = useState("");
@@ -22,7 +23,14 @@ export default function MyCollection({ reloadSignal }: Props) {
         setFavoriteNames(favorites.map((item) => item.board_game.name));
         setCustomGames(custom.map((item) => ({ id: item.id, name: item.name })));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load collection");
+        const message = err instanceof Error ? err.message : "Failed to load collection";
+        if (message.includes("Not Found")) {
+          setFavoriteNames([]);
+          setCustomGames([]);
+          setError("");
+        } else {
+          setError(message);
+        }
       } finally {
         setLoading(false);
       }
@@ -40,6 +48,7 @@ export default function MyCollection({ reloadSignal }: Props) {
     try {
       await deleteCustomGame(customGameId);
       setCustomGames((previous) => previous.filter((item) => item.id !== customGameId));
+      onCollectionChanged?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete custom game";
       if (message.includes("Cannot delete: custom game is used by sessions")) {

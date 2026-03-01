@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import case, func, select
+from sqlalchemy import Boolean, String, case, cast, func, literal, select, union_all
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,32 +19,71 @@ DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
 
 
-@router.get("", response_model=list[BoardGameRead])
+@router.get("", response_model=list[BoardGameSearchItem])
 def list_board_games(
     response: Response,
     query: str | None = Query(default=None),
     q: str | None = Query(default=None),
     limit: int = Query(default=DEFAULT_LIMIT),
     offset: int = Query(default=0),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[BoardGame]:
-    """List global catalog games with optional name search."""
+) -> list[BoardGameSearchItem]:
+    """List merged global and user custom games with optional name search."""
     limit = min(max(limit, 1), MAX_LIMIT)
     offset = max(offset, 0)
-    search_term = query if query is not None else q
-    statement = select(BoardGame)
-    count_statement = select(func.count(BoardGame.id))
-    if search_term:
-        predicate = BoardGame.name.ilike(f"%{search_term}%")
-        statement = statement.where(predicate)
-        count_statement = count_statement.where(predicate)
+    search_term = (query if query is not None else q) or ""
+    like_pattern = f"%{search_term.strip()}%"
+
+    global_is_favorite = case((UserFavoriteGame.id.is_not(None), True), else_=False)
+    global_statement = (
+        select(
+            func.concat(literal("global:"), cast(BoardGame.id, String)).label("key"),
+            BoardGame.id.label("id"),
+            BoardGame.name.label("name"),
+            literal("global").label("source"),
+            cast(global_is_favorite, Boolean).label("is_favorite"),
+        )
+        .outerjoin(
+            UserFavoriteGame,
+            (UserFavoriteGame.board_game_id == BoardGame.id)
+            & (UserFavoriteGame.user_id == current_user.id),
+        )
+        .where(BoardGame.name.ilike(like_pattern))
+    )
+
+    custom_statement = (
+        select(
+            func.concat(literal("custom:"), cast(UserCustomGame.id, String)).label("key"),
+            UserCustomGame.id.label("id"),
+            UserCustomGame.name.label("name"),
+            literal("custom").label("source"),
+            literal(False).label("is_favorite"),
+        )
+        .where(UserCustomGame.user_id == current_user.id)
+        .where(UserCustomGame.name.ilike(like_pattern))
+    )
+
+    combined = union_all(global_statement, custom_statement).subquery()
+    count_statement = select(func.count()).select_from(combined)
     total = db.scalar(count_statement) or 0
     response.headers["X-Total-Count"] = str(total)
     response.headers["X-Limit"] = str(limit)
     response.headers["X-Offset"] = str(offset)
-    statement = statement.order_by(BoardGame.name.asc()).limit(limit).offset(offset)
-    return list(db.scalars(statement).all())
+    statement = (
+        select(
+            combined.c.key,
+            combined.c.id,
+            combined.c.name,
+            combined.c.source,
+            combined.c.is_favorite,
+        )
+        .order_by(func.lower(combined.c.name).asc(), combined.c.id.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = db.execute(statement).all()
+    return [BoardGameSearchItem.model_validate(row._mapping) for row in rows]
 
 
 @router.get("/search", response_model=list[BoardGameSearchItem])

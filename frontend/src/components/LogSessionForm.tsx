@@ -2,20 +2,14 @@ import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useS
 import { useNavigate } from "react-router-dom";
 
 import { BoardGame, fetchBoardGames } from "../api/boardGames";
-import {
-  addFavorite,
-  createCustomGame,
-  CustomGame,
-  fetchCustomGames,
-  fetchFavorites,
-  removeFavorite,
-} from "../api/me";
+import { addFavorite, createCustomGame, removeFavorite } from "../api/me";
 import { createSession } from "../api/sessions";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 type Props = {
   onCreated: () => void;
   onCollectionChanged?: () => void;
+  reloadSignal: number;
 };
 
 type Suggestion = {
@@ -26,7 +20,7 @@ type Suggestion = {
   isFavorite: boolean;
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 function StarIcon({ active }: { active: boolean }) {
   return (
@@ -47,16 +41,14 @@ function StarIcon({ active }: { active: boolean }) {
   );
 }
 
-export default function LogSessionForm({ onCreated, onCollectionChanged }: Props) {
+export default function LogSessionForm({ onCreated, onCollectionChanged, reloadSignal }: Props) {
   const navigate = useNavigate();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedTerm = useDebouncedValue(searchTerm, 250);
-  const [globalGames, setGlobalGames] = useState<BoardGame[]>([]);
-  const [globalTotal, setGlobalTotal] = useState(0);
-  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
-  const [customGames, setCustomGames] = useState<CustomGame[]>([]);
+  const [games, setGames] = useState<BoardGame[]>([]);
+  const [total, setTotal] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Suggestion | null>(null);
@@ -74,41 +66,19 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
   const listboxId = "game-search-listbox";
 
   const suggestions = useMemo(() => {
-    const q = debouncedTerm.trim().toLowerCase();
-    const customItems = customGames
-      .filter((item) => item.name.toLowerCase().includes(q))
-      .map<Suggestion>((item) => ({
-        key: `custom:${item.id}`,
-        id: item.id,
-        name: item.name,
-        source: "custom",
-        isFavorite: false,
-      }));
+    const mapped = games.map<Suggestion>((item) => ({
+      key: item.key,
+      id: item.id,
+      name: item.name,
+      source: item.source,
+      isFavorite: item.is_favorite,
+    }));
+    const favorites = mapped.filter((item) => item.source === "global" && item.isFavorite);
+    const rest = mapped.filter((item) => !(item.source === "global" && item.isFavorite));
+    return [...favorites, ...rest];
+  }, [games]);
 
-    const favoriteGlobals = globalGames
-      .filter((game) => favoriteIds.has(game.id))
-      .map<Suggestion>((game) => ({
-        key: `global:${game.id}`,
-        id: game.id,
-        name: game.name,
-        source: "global",
-        isFavorite: true,
-      }));
-
-    const otherGlobals = globalGames
-      .filter((game) => !favoriteIds.has(game.id))
-      .map<Suggestion>((game) => ({
-        key: `global:${game.id}`,
-        id: game.id,
-        name: game.name,
-        source: "global",
-        isFavorite: false,
-      }));
-
-    return [...customItems, ...favoriteGlobals, ...otherGlobals];
-  }, [customGames, debouncedTerm, favoriteIds, globalGames]);
-
-  const hasMoreGlobalGames = globalGames.length < globalTotal;
+  const hasMore = games.length < total;
 
   function isAuthError(message: string): boolean {
     return (
@@ -118,21 +88,21 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
     );
   }
 
-  async function loadInitialResults(term: string) {
+  async function loadInitial(term: string) {
     setLoadingGames(true);
     setLoadError("");
     try {
-      const [boardGamesPage, favoriteRows, customRows] = await Promise.all([
-        fetchBoardGames(term, PAGE_SIZE, 0),
-        fetchFavorites(),
-        fetchCustomGames(),
-      ]);
-
-      setGlobalGames(boardGamesPage.items);
-      setGlobalTotal(boardGamesPage.total);
-      setFavoriteIds(new Set(favoriteRows.map((row) => row.board_game.id)));
-      setCustomGames(customRows);
+      const page = await fetchBoardGames(term, PAGE_SIZE, 0);
+      setGames(page.items);
+      setTotal(page.total);
       setActiveIndex(0);
+      if (import.meta.env.DEV) {
+        console.debug("board-games api/render count", {
+          apiItems: page.items.length,
+          renderedItems: page.items.length,
+          limit: PAGE_SIZE,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load board games";
       console.error("Failed to load board games", err);
@@ -141,53 +111,72 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
         return;
       }
       setLoadError("Failed to load games. Please refresh and try again.");
-      setGlobalGames([]);
-      setGlobalTotal(0);
+      setGames([]);
+      setTotal(0);
     } finally {
       setLoadingGames(false);
     }
   }
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await fetchBoardGames(debouncedTerm, PAGE_SIZE, games.length);
+      setGames((previous) => {
+        const seen = new Set(previous.map((item) => item.key));
+        const merged = [...previous];
+        for (const item of page.items) {
+          if (!seen.has(item.key)) merged.push(item);
+        }
+        return merged;
+      });
+      setTotal(page.total);
+    } catch (err) {
+      console.error("Failed to load more board games", err);
+      setLoadError("Failed to load games. Please refresh and try again.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [debouncedTerm, games.length, hasMore, loadingMore]);
+
   useEffect(() => {
-    void loadInitialResults(debouncedTerm);
+    void loadInitial(debouncedTerm);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedTerm, navigate]);
+  }, [debouncedTerm, reloadSignal, navigate]);
 
   useEffect(() => {
     setSelectedGame((previous) => {
       if (!previous) return suggestions[0] ?? null;
-      const stillPresent = suggestions.find((item) => item.key === previous.key);
-      return stillPresent ?? previous;
+      return suggestions.find((item) => item.key === previous.key) ?? previous;
     });
     setActiveIndex((previous) => {
       if (suggestions.length === 0) return 0;
-      if (previous > suggestions.length - 1) return suggestions.length - 1;
-      return previous;
+      return Math.min(previous, suggestions.length - 1);
     });
   }, [suggestions]);
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const renderedGlobalCount = suggestions.filter((item) => item.source === "global").length;
-    if (renderedGlobalCount !== globalGames.length) {
-      console.warn("Suggestion/global count mismatch", {
-        renderedGlobalCount,
-        globalGamesCount: globalGames.length,
-      });
-    }
-  }, [globalGames.length, suggestions]);
-
-  useEffect(() => {
     function handleDocumentClick(event: MouseEvent) {
       if (!searchContainerRef.current) return;
-      if (!searchContainerRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
+      if (!searchContainerRef.current.contains(event.target as Node)) setDropdownOpen(false);
     }
-
     document.addEventListener("mousedown", handleDocumentClick);
     return () => document.removeEventListener("mousedown", handleDocumentClick);
   }, []);
+
+  useEffect(() => {
+    const element = listRef.current;
+    if (!element) return;
+    function onScroll() {
+      const current = listRef.current;
+      if (!current || loadingMore || loadingGames || !hasMore) return;
+      const nearBottom = current.scrollTop + current.clientHeight >= current.scrollHeight - 24;
+      if (nearBottom) void loadMore();
+    }
+    element.addEventListener("scroll", onScroll);
+    return () => element.removeEventListener("scroll", onScroll);
+  }, [hasMore, loadMore, loadingGames, loadingMore]);
 
   function selectSuggestion(item: Suggestion) {
     setSelectedGame(item);
@@ -195,64 +184,21 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
     setDropdownOpen(false);
   }
 
-  const loadMoreGlobalGames = useCallback(async () => {
-    if (loadingMore || !hasMoreGlobalGames) return;
-    setLoadingMore(true);
-    try {
-      const nextPage = await fetchBoardGames(debouncedTerm, PAGE_SIZE, globalGames.length);
-      setGlobalGames((previous) => {
-        const seen = new Set(previous.map((item) => item.id));
-        const merged = [...previous];
-        for (const item of nextPage.items) {
-          if (!seen.has(item.id)) {
-            merged.push(item);
-          }
-        }
-        return merged;
-      });
-      setGlobalTotal(nextPage.total);
-    } catch (err) {
-      console.error("Failed to load more board games", err);
-      setLoadError("Failed to load games. Please refresh and try again.");
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [debouncedTerm, globalGames.length, hasMoreGlobalGames, loadingMore]);
-
-  useEffect(() => {
-    const element = listRef.current;
-    if (!element) return;
-
-    function onScroll() {
-      const currentElement = listRef.current;
-      if (!currentElement || loadingMore || loadingGames || !hasMoreGlobalGames) return;
-      const nearBottom =
-        currentElement.scrollTop + currentElement.clientHeight >= currentElement.scrollHeight - 24;
-      if (nearBottom) {
-        void loadMoreGlobalGames();
-      }
-    }
-
-    element.addEventListener("scroll", onScroll);
-    return () => element.removeEventListener("scroll", onScroll);
-  }, [hasMoreGlobalGames, loadMoreGlobalGames, loadingGames, loadingMore]);
-
   async function handleToggleFavorite(item: Suggestion) {
     if (item.source !== "global") return;
-
     setError("");
-    const wasFavorite = favoriteIds.has(item.id);
-    const nextIds = new Set(favoriteIds);
-    if (wasFavorite) nextIds.delete(item.id);
-    else nextIds.add(item.id);
-    setFavoriteIds(nextIds);
-
+    const nextFavorite = !item.isFavorite;
+    setGames((previous) =>
+      previous.map((row) => (row.key === item.key ? { ...row, is_favorite: nextFavorite } : row))
+    );
     try {
-      if (wasFavorite) await removeFavorite(item.id);
-      else await addFavorite(item.id);
+      if (nextFavorite) await addFavorite(item.id);
+      else await removeFavorite(item.id);
       onCollectionChanged?.();
     } catch (err) {
-      setFavoriteIds(favoriteIds);
+      setGames((previous) =>
+        previous.map((row) => (row.key === item.key ? { ...row, is_favorite: item.isFavorite } : row))
+      );
       setError(err instanceof Error ? err.message : "Failed to update favorite");
     }
   }
@@ -260,18 +206,26 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
   async function handleAddCustomGame() {
     const name = searchTerm.trim();
     if (!name) return;
-
     try {
       const created = await createCustomGame(name);
-      setCustomGames((previous) => [created, ...previous]);
-      const createdSuggestion: Suggestion = {
+      setGames((previous) => [
+        {
+          key: `custom:${created.id}`,
+          id: created.id,
+          name: created.name,
+          source: "custom",
+          is_favorite: false,
+        },
+        ...previous,
+      ]);
+      setTotal((value) => value + 1);
+      setSelectedGame({
         key: `custom:${created.id}`,
         id: created.id,
         name: created.name,
         source: "custom",
         isFavorite: false,
-      };
-      setSelectedGame(createdSuggestion);
+      });
       setDropdownOpen(false);
       onCollectionChanged?.();
     } catch (err) {
@@ -288,40 +242,32 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
       }
       return;
     }
-
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((previous) => (previous + 1) % suggestions.length);
       return;
     }
-
     if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((previous) => (previous - 1 + suggestions.length) % suggestions.length);
       return;
     }
-
     if (event.key === "Enter" && suggestions[activeIndex]) {
       event.preventDefault();
       selectSuggestion(suggestions[activeIndex]);
       return;
     }
-
     if (event.key === "Escape") {
       event.preventDefault();
       setDropdownOpen(false);
       return;
     }
-
-    if (event.key === "Tab") {
-      setDropdownOpen(false);
-    }
+    if (event.key === "Tab") setDropdownOpen(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-
     if (!selectedGame) {
       setError("Please select a game");
       return;
@@ -330,7 +276,6 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
       setError("played_date must be MM/DD/YYYY");
       return;
     }
-
     setSubmitting(true);
     try {
       await createSession({
@@ -387,7 +332,6 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
               }
             />
           </label>
-
           {dropdownOpen && (
             <div ref={listRef} className="search-list" id={listboxId} role="listbox">
               {loadingGames && (
@@ -429,8 +373,7 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
                     )}
                   </div>
                 ))}
-
-              {!loadingGames && !suggestions.length && (
+              {!loadingGames && suggestions.length === 0 && (
                 <div style={{ padding: 10 }}>
                   <p className="meta-text" style={{ marginBottom: 8 }}>
                     No matching board games.
@@ -442,13 +385,12 @@ export default function LogSessionForm({ onCreated, onCollectionChanged }: Props
                   )}
                 </div>
               )}
-
-              {!loadingGames && hasMoreGlobalGames && (
+              {!loadingGames && hasMore && (
                 <div className="search-footer">
                   <button
                     type="button"
                     className="search-load-more"
-                    onClick={() => void loadMoreGlobalGames()}
+                    onClick={() => void loadMore()}
                     disabled={loadingMore}
                   >
                     {loadingMore ? "Loading..." : "Load more"}

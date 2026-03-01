@@ -51,7 +51,7 @@ docker compose exec backend python -m app.scripts.seed_top100_board_games
 Search API example:
 
 ```bash
-curl -H "Authorization: Bearer <token>" "http://localhost:8000/board-games/search?query=Root&limit=20"
+curl -H "Authorization: Bearer <token>" "http://localhost:8000/board-games?q=Root&limit=50&offset=0"
 ```
 
 Manual smoke checklist:
@@ -62,6 +62,7 @@ Manual smoke checklist:
 4. Click star on a global game and verify it appears in My Collection favorites.
 5. Type a nonsense game name; verify `Add as custom game` appears.
 6. Add custom game and select it; submit session and verify it appears as custom in Recent Sessions.
+7. Delete a custom game from My Collection and verify it disappears from `/board-games` search results immediately.
 
 ### Verify Board Game Paging + Custom Game Delete
 

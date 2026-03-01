@@ -3,11 +3,11 @@ import { getToken } from "./client";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export type BoardGame = {
+  key: string;
   id: number;
   name: string;
-  source: string | null;
-  source_id: string | null;
-  created_at: string;
+  source: "global" | "custom";
+  is_favorite: boolean;
 };
 
 export type BoardGamesPage = {

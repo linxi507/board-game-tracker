@@ -50,9 +50,13 @@ export default function Dashboard() {
       <h1 className="dashboard-title">Game Night Dashboard</h1>
       <p className="dashboard-user">Logged in as: {email}</p>
       <StatsPanel reloadSignal={reloadCounter} />
-      <MyCollection reloadSignal={reloadCounter} />
+      <MyCollection
+        reloadSignal={reloadCounter}
+        onCollectionChanged={() => setReloadCounter((value) => value + 1)}
+      />
       <section className="split">
         <LogSessionForm
+          reloadSignal={reloadCounter}
           onCreated={() => setReloadCounter((value) => value + 1)}
           onCollectionChanged={() => setReloadCounter((value) => value + 1)}
         />
