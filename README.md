@@ -25,6 +25,18 @@ Seed the Top 100 starter catalog:
 docker compose exec backend python -m app.scripts.seed_top100_board_games
 ```
 
+Render one-time seed command (Shell):
+
+```bash
+python -m app.scripts.seed_top100_board_games
+```
+
+Recommended Render release command:
+
+```bash
+alembic upgrade head && python -m app.scripts.seed_top100_board_games
+```
+
 Optional startup seeding:
 
 ```bash
@@ -52,6 +64,12 @@ Search API example:
 
 ```bash
 curl -H "Authorization: Bearer <token>" "http://localhost:8000/board-games?q=Root&limit=50&offset=0"
+```
+
+Verify catalog size (should return at least 50 rows on first page once seeded):
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:8000/board-games?limit=50&offset=0"
 ```
 
 Manual smoke checklist:

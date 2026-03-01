@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.services.seed import seed_top100_board_games
+
 
 def test_board_games_unique_by_normalized_name(
     client: TestClient, auth_headers: dict[str, str]
@@ -112,3 +114,17 @@ def test_board_games_limit_is_clamped_to_100(
     assert second_page.status_code == 200
     second_items = second_page.json()
     assert len(second_items) >= 30
+
+
+def test_seed_top100_exposes_at_least_100_global_games(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    inserted, attempted = seed_top100_board_games()
+    assert attempted >= 100
+    assert inserted >= 0
+
+    response = client.get("/board-games?limit=200&offset=0", headers=auth_headers)
+    assert response.status_code == 200
+    items = response.json()
+    global_items = [item for item in items if item["source"] == "global"]
+    assert len(global_items) >= 100

@@ -47,16 +47,19 @@ def seed_top100_board_games() -> tuple[int, int]:
 
 
 def seed_board_games_if_empty() -> tuple[int, int]:
-    """Seed top100 only when board_games table is empty."""
+    """Backfill catalog with top100 entries using idempotent upsert.
+
+    Historical deployments could have a partially seeded catalog (for example 10 rows).
+    We always run the top100 upsert so existing databases are topped up safely.
+    """
     db = SessionLocal()
     try:
-        existing = db.scalar(select(BoardGame.id).limit(1))
+        # Check connectivity early; if this fails startup should continue without hard crash.
+        db.scalar(select(BoardGame.id).limit(1))
     except SQLAlchemyError:
         db.rollback()
         return 0, 0
     finally:
         db.close()
 
-    if existing is not None:
-        return 0, 0
     return seed_top100_board_games()
