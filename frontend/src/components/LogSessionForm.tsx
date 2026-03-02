@@ -48,7 +48,8 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedTerm = useDebouncedValue(searchTerm, 250);
   const [games, setGames] = useState<BoardGame[]>([]);
-  const [total, setTotal] = useState(0);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Suggestion | null>(null);
@@ -59,6 +60,7 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
   const [notes, setNotes] = useState("");
   const [loadingGames, setLoadingGames] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -74,11 +76,10 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
       isFavorite: item.is_favorite,
     }));
     const favorites = mapped.filter((item) => item.source === "global" && item.isFavorite);
-    const rest = mapped.filter((item) => !(item.source === "global" && item.isFavorite));
-    return [...favorites, ...rest];
+    const custom = mapped.filter((item) => item.source === "custom");
+    const global = mapped.filter((item) => item.source === "global" && !item.isFavorite);
+    return [...favorites, ...custom, ...global];
   }, [games]);
-
-  const hasMore = games.length < total;
 
   function isAuthError(message: string): boolean {
     return (
@@ -91,16 +92,19 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
   async function loadInitial(term: string) {
     setLoadingGames(true);
     setLoadError("");
+    setLoadMoreError("");
     try {
       const page = await fetchBoardGames(term, PAGE_SIZE, 0);
       setGames(page.items);
-      setTotal(page.total);
+      setNextOffset(page.items.length);
+      setHasMore(page.items.length >= PAGE_SIZE);
       setActiveIndex(0);
       if (import.meta.env.DEV) {
         console.debug("board-games api/render count", {
           apiItems: page.items.length,
           renderedItems: page.items.length,
           limit: PAGE_SIZE,
+          offset: 0,
         });
       }
     } catch (err) {
@@ -112,7 +116,8 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
       }
       setLoadError("Failed to load games. Please refresh and try again.");
       setGames([]);
-      setTotal(0);
+      setNextOffset(0);
+      setHasMore(false);
     } finally {
       setLoadingGames(false);
     }
@@ -121,8 +126,9 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
+    setLoadMoreError("");
     try {
-      const page = await fetchBoardGames(debouncedTerm, PAGE_SIZE, games.length);
+      const page = await fetchBoardGames(debouncedTerm, PAGE_SIZE, nextOffset);
       setGames((previous) => {
         const seen = new Set(previous.map((item) => item.key));
         const merged = [...previous];
@@ -131,14 +137,24 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
         }
         return merged;
       });
-      setTotal(page.total);
+      setNextOffset((previous) => previous + page.items.length);
+      if (page.items.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+      if (import.meta.env.DEV) {
+        console.debug("board-games load more", {
+          fetched: page.items.length,
+          limit: PAGE_SIZE,
+          offset: nextOffset,
+        });
+      }
     } catch (err) {
       console.error("Failed to load more board games", err);
-      setLoadError("Failed to load games. Please refresh and try again.");
+      setLoadMoreError("Failed to load more, retry");
     } finally {
       setLoadingMore(false);
     }
-  }, [debouncedTerm, games.length, hasMore, loadingMore]);
+  }, [debouncedTerm, hasMore, loadingMore, nextOffset]);
 
   useEffect(() => {
     void loadInitial(debouncedTerm);
@@ -218,7 +234,8 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
         },
         ...previous,
       ]);
-      setTotal((value) => value + 1);
+      setNextOffset((value) => value + 1);
+      setHasMore(true);
       setSelectedGame({
         key: `custom:${created.id}`,
         id: created.id,
@@ -387,6 +404,11 @@ export default function LogSessionForm({ onCreated, onCollectionChanged, reloadS
               )}
               {!loadingGames && hasMore && (
                 <div className="search-footer">
+                  {loadMoreError && (
+                    <p className="error-text" style={{ marginBottom: 8 }}>
+                      {loadMoreError}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="search-load-more"
