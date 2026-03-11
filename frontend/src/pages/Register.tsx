@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { login, register } from "../api/auth";
-import { setToken } from "../api/client";
+import { API_BASE_URL, setToken } from "../api/client";
 
 const USERNAME_REGEX = /^[A-Za-z0-9]+$/;
 const PASSWORD_REGEX = /^[A-Za-z0-9]+$/;
@@ -93,6 +93,18 @@ export default function Register() {
         </label>
         <button type="submit" disabled={loading} className="btn">
           {loading ? "Creating account..." : "Create Account"}
+        </button>
+        <p className="meta-text" style={{ textAlign: "center" }}>
+          Or continue with Google
+        </p>
+        <button
+          type="button"
+          className="btn btn-google"
+          onClick={() => {
+            window.location.href = `${API_BASE_URL}/auth/google/login`;
+          }}
+        >
+          Continue with Google
         </button>
       </form>
       {error && <p className="error-text" style={{ marginTop: 12 }}>{error}</p>}

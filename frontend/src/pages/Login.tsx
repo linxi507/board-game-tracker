@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { login } from "../api/auth";
-import { setToken } from "../api/client";
+import { API_BASE_URL, setToken } from "../api/client";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -56,6 +56,18 @@ export default function Login() {
 
         <button type="submit" disabled={loading} className="btn">
           {loading ? "Signing in..." : "Sign In"}
+        </button>
+        <p className="meta-text" style={{ textAlign: "center" }}>
+          Or continue with Google
+        </p>
+        <button
+          type="button"
+          className="btn btn-google"
+          onClick={() => {
+            window.location.href = `${API_BASE_URL}/auth/google/login`;
+          }}
+        >
+          Continue with Google
         </button>
       </form>
 

@@ -17,6 +17,10 @@ class Settings:
     jwt_access_token_expire_minutes: int
     cors_origins: list[str]
     seed_on_startup: bool
+    google_client_id: str | None
+    google_client_secret: str | None
+    google_redirect_uri: str | None
+    frontend_url: str
 
 
 def _parse_bool(raw: str | None, default: bool = False) -> bool:
@@ -55,6 +59,10 @@ def get_settings() -> Settings:
     )
     cors_origins = _parse_cors_origins(os.getenv("CORS_ORIGINS"), app_env)
     seed_on_startup = _parse_bool(os.getenv("SEED_ON_STARTUP"), default=True)
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+    google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
     return Settings(
         app_env=app_env,
@@ -64,4 +72,8 @@ def get_settings() -> Settings:
         jwt_access_token_expire_minutes=jwt_access_token_expire_minutes,
         cors_origins=cors_origins,
         seed_on_startup=seed_on_startup,
+        google_client_id=google_client_id,
+        google_client_secret=google_client_secret,
+        google_redirect_uri=google_redirect_uri,
+        frontend_url=frontend_url.rstrip("/"),
     )

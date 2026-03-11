@@ -11,6 +11,46 @@ Open:
 - Backend docs: http://localhost:8000/docs
 - Frontend: http://localhost:5173
 
+## Google Auth
+
+Required backend env vars:
+
+```bash
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
+FRONTEND_URL=http://localhost:5173
+```
+
+Google Cloud Console redirect URIs:
+
+- Local backend callback: `http://localhost:8000/auth/google/callback`
+- Render backend callback: `https://board-game-tracker-0.onrender.com/auth/google/callback`
+
+Frontend URLs:
+
+- Local frontend: `http://localhost:5173`
+- Render frontend: `https://board-game-tracker-0.onrender.com`
+
+Local manual verification:
+
+1. Confirm local login still works with username/email + password.
+2. Click `Continue with Google` on the login page.
+3. Approve the Google consent screen.
+4. Verify the browser lands on `/auth/callback`, then redirects to `/dashboard`.
+5. Log out and repeat Google login; the same app user should be reused.
+
+Render deployment notes:
+
+1. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and `FRONTEND_URL` in Render.
+2. Run the release command:
+
+```bash
+alembic upgrade head && python -m app.scripts.seed_top100_board_games
+```
+
+3. Verify local login still works, then verify Google login from the deployed login page.
+
 ## Board Game Catalog Seeding
 
 Seed the global board game catalog manually (recommended):

@@ -141,6 +141,18 @@ a:hover {
   cursor: not-allowed;
 }
 
+.btn-google {
+  width: 100%;
+  background: linear-gradient(135deg, #f5f2ea, #ffffff);
+  color: #1f2a23;
+  border: 1px solid rgba(16, 20, 14, 0.12);
+}
+
+.btn-google:hover {
+  filter: none;
+  background: linear-gradient(135deg, #ffffff, #f7f1e7);
+}
+
 .error-text {
   color: var(--danger);
   font-size: 0.93rem;
